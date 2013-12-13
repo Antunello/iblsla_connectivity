@@ -1,0 +1,667 @@
+////////////////////////////////////////////////////
+// Class developed for Stave RT result comparison //
+// Developed by: J. Agricola, A. Cervelli         //
+// V 0.1 Jul 2012                                 //
+////////////////////////////////////////////////////
+
+#include <dirent.h>
+#include <Astave.hh>
+#include <TObject.h>
+#include <stdio.h>
+#include <HistoReader.hh>
+#include <TGraph.h>
+#include <ScanDef.hh>
+#include <TFile.h>
+#include <TString.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <IVMeasurementPoint.hh>
+#include <stdlib.h>
+
+Astave* Astave::instance = NULL;
+std::string rightlist[]={"A8-2","A8-1","A7-2", "A7-1", "A6-2","A6-1", "A5-2", "A5-1", "A4-2", "A4-1", "A3-2", "A3-1", "A2-2", "A2-1", "A1-2", "A1-1","C1-1", "C1-2","C2-1","C2-2","C3-1","C3-2","C4-1","C4-2","C5-1","C5-2","C6-1","C6-2","C7-1","C7-2","C8-1","C8-2"};
+
+Astave::Astave() : m_themodules(0)
+{
+  //  for(int i=0; i<8; i++)IV.push_back(new TGraph());
+}
+/*
+Astave::~Astave(){
+  std::vector<TGraph*>::iterator it;
+  for(it=IV.begin(); it!=IV.end(); ++it)
+    delete (*it);
+  IV.clear();
+
+  delete instance;
+}
+*/
+
+Astave* Astave::GetInstance(){
+  if (!instance) instance = new Astave();
+  return instance;
+}
+
+
+std::vector<IVMeasurementPoint> Astave::GetIVStaveVector(const std::string staveid, ProcessPosition asource, int channel){
+
+//fill IV part
+  std::string line;
+  std::string mod;
+  std::string db_path = DbTools::GetInstance()->DatabasePath();
+  ifstream on;
+  on.open((db_path+"/stave"+staveid+"_loading.txt").c_str());
+  if(!on){
+    on.close();
+    on.open(("/IBLdata/stave"+staveid+"_loading.txt").c_str());
+  }
+  
+  std::vector<std::string> MOD;
+  std::vector<std::string> LIST;
+
+  MOD =  Astave::GetInstance()->GetModuleIdList(staveid);
+  std::vector<IVMeasurementPoint>  iv_0,iv_1,iv_2,iv_3,iv_4,iv_5,iv_6,iv_7;
+  double module, chan, volt, cur;
+  
+      
+  int ent[8]={0,0,0,0,0,0,0,0};
+  for (std::vector<std::string>::iterator j = MOD.begin(); j != MOD.end(); j++){
+    mod = (*j);
+    LIST = DbTools::GetInstance()->GetScanList_IV(mod, asource);
+    if(j==MOD.begin()){
+
+      for(std::vector<std::string>::iterator i=LIST.begin(); i!=LIST.end(); i++){
+	ifstream in;
+	in.open((*i).c_str());
+	
+	if(!in.is_open()){
+	  std::cout << "can't open IV file " << (*i).c_str() << std::endl << std::flush;
+	}
+
+
+	  std::string str;
+	  int ii=0,jj=0;
+	  while (getline(in,str)) {
+	    if(str.at(0) == '#') {ii++;continue;std::cout << " IIII " << ii << std::endl;}
+	  }
+
+	  in.close();
+	  in.open((*i).c_str());
+
+
+	  for(int j=0;j<ii;j++) {
+	    getline(in,str);
+	    //     std::cout << " \n j = "<< j << " str " << str << std::endl;
+	  }
+
+	  while(in >> module >> chan >> volt >> cur){
+	    jj++;
+
+	    int kk = ent[(int)chan];
+	    
+	    switch((int)chan){
+	    case 0:
+	      iv_0.push_back(IVMeasurementPoint(volt,cur));
+	      break;
+	      
+	    case 1:
+	      iv_1.push_back(IVMeasurementPoint(volt,cur));
+	      break;
+	      
+	    case 2:
+	      iv_2.push_back(IVMeasurementPoint(volt,cur));
+	      break;
+	      
+	    case 3:
+	      iv_3.push_back(IVMeasurementPoint(volt,cur));
+	      break;
+	      
+	    case 4:
+	      iv_4.push_back(IVMeasurementPoint(volt,cur));	      	
+	      break;
+
+	    case 5:
+	      iv_5.push_back(IVMeasurementPoint(volt,cur));
+	      break;
+	      
+	    case 6:
+	      iv_6.push_back(IVMeasurementPoint(volt,cur));
+	      break;
+	      
+	    case 7:
+
+	      iv_7.push_back(IVMeasurementPoint(volt,cur));
+
+
+	      break;
+	      
+	    default:
+	      break;
+	    }
+	    
+	    ent[(int)chan]++;
+	  }
+      }
+    }
+  }
+
+  switch(channel){
+  case 0:
+    return iv_0;
+  case 1:
+    return iv_1;
+  case 2:
+    return iv_2;
+  case 3:
+    return iv_3;	
+  case 4:
+    return iv_4;		  
+  case 5:
+    return iv_5;
+  case 6:
+    return iv_6;		
+  case 7:
+    return iv_7;
+  }
+}
+
+TH1D* Astave::HistoIVLoader(std::vector<IVMeasurementPoint> iv) 
+{
+
+  int nPoint = iv.size();
+  double xMax = iv.at(nPoint-1).voltage;
+  std::cout<<"tensione massima: "<<xMax<<std::endl;
+  TH1D* IV_histo = new TH1D("IV_histo","IV_histo",nPoint, 0-0.5*iv.at(1).voltage, xMax+0.5*iv.at(1).voltage);
+  
+  for(int i=0; i<nPoint;i++){
+	std::cout<<"Voltage point: "<<iv.at(i).voltage<<"\tCurrent point: "<<iv.at(i).current<<std::endl;
+	IV_histo->Fill(iv.at(i).voltage,iv.at(i).current);    
+	//IV_histo->SetBinContent(i+1,iv.at(i).current);
+  }
+  return IV_histo;
+  delete IV_histo;
+}
+
+int Astave::mountmodules(const std::string staveid,
+			  const ProcessPosition asource,
+			  const int Hvstatus)
+{
+  //Get Module list
+  STAVEID = staveid;
+  std::string db_path = DbTools::GetInstance()->DatabasePath();
+  ifstream in;
+  in.open((db_path+"/stave"+staveid+"_loading.txt").c_str());
+  if(!in){
+    in.close();
+    in.open(("/IBLdata/stave"+staveid+"_loading.txt").c_str());
+  }
+  std::vector <std::string> modulelist;
+  std::vector <std::string> moduleonfile;
+  std::vector <std::string> outlinkonfile;
+	
+  std::string moduleidno;
+  std::string RCEoutlinkno;
+  std::string RCE;
+  std::string inlink;
+  std::string outlink;
+  
+  int isfirstline = 1;
+  int numeromodules =0;
+
+  while(1){
+    in >> moduleidno >> RCEoutlinkno >> RCE >> inlink >>outlink;
+    if (!in.good()) break;
+    if (isfirstline>-1){
+      moduleonfile.push_back(moduleidno);
+      outlinkonfile.push_back(RCEoutlinkno);
+    }
+    isfirstline = 0;
+    numeromodules++;
+  }
+  in.close();
+  
+  //  std::string rightlist[]={"A8-2","A8-1","A7-2", "A7-1", "A6-2","A6-1", "A5-2", "A5-1", "A4-2", "A4-1", "A3-2", "A3-1", "A2-2", "A2-1", "A1-2", "A1-1","C1-1", "C1-2","C2-1","C2-2","C3-1","C3-2","C4-1","C4-2","C5-1","C5-2","C6-1","C6-2","C7-1","C7-2","C8-1","C8-2"};
+  
+  if(outlinkonfile.empty()){
+    std::cout << "Astave::mountmodules No module data for stave!" << std::endl;
+    return -1;
+  }
+  
+  for (int sortedvect = 0 ; sortedvect <32 ; sortedvect++){
+    std::vector <std::string>::iterator it = moduleonfile.begin();
+    std::vector <std::string>::iterator it2 = outlinkonfile.begin();
+    //for(int idx =0; idx<32; idx++){
+    while(it != moduleonfile.end()){
+      if(*it2 == rightlist[sortedvect]){
+	modulelist.push_back(*it);
+      }
+      it++;
+      it2++;
+    }
+  }
+
+  //Load HistoReader on the vector
+  int theoutlinkno;
+  theoutlinkno=16;
+  int isfrontendzero = -1;
+  int feid_int, feid_int_cut, feid_int_cut_2;
+  // std::vector<HistoReader*> themodules;
+  std::vector <std::string>::iterator iit = modulelist.begin();
+  for(int idx =0; idx<32; idx++){
+
+    //  theoutlinkno = idx;
+      
+    //    if(rightlist[idx].substr(3,4)=="2" && (rightlist[idx].substr(1,2)!="7" || rightlist[idx].substr(1,2)!="8") ) isfrontendzero = 1;
+    // else if(rightlist[idx].substr(3,4)=="1" && righlist[idx].substr(1,2))
+    //&& rightlist[idx].substr(1,2)!="7") isfrontendzero = 1;
+    // else isfrontendzero = 0;
+
+    if(rightlist[idx].substr(3,1)=="1") isfrontendzero = 0;
+    else if(rightlist[idx].substr(3,1)=="2" && (rightlist[idx].substr(1,1)=="7" || rightlist[idx].substr(1,1)=="8")) isfrontendzero = 0;
+    else isfrontendzero = 1;
+    
+    std::string config_path = GetConfigPath(staveid, *iit, asource, theoutlinkno);
+    std::string config_path_2 = GetConfigPath2(staveid, *iit, theoutlinkno);
+    
+    // R // std::string config_path;
+    
+    std::ostringstream oss;
+    oss << theoutlinkno;
+    
+    // R  //  config_path = DbTools::GetInstance()->DatabasePath() + "/staves/stave" + staveid + "/cfg/" + (*iit)
+    // R // + "/configs/" + (*iit) + "__fe" + oss.str() + ".cfg";
+    
+    ifstream in;
+    std::cout<<"Normal config path:\t"<<config_path.c_str()<<std::endl;   
+    std::cout<<"Alternative config path:\t"<<config_path_2.c_str()<<std::endl;
+    
+    std::string config_check = config_path.substr((config_path.size()-4),4);
+    
+    //std::cout<<"Is config directory empty? (1 or 0)\t"<<Astave::IsDirectoryEmpty(config_path.c_str())<<std::endl;
+    
+    if(config_check == ".cfg"){
+      in.open(config_path.c_str());
+      std::cout << " SONO NEL PRIMO IF" << config_path.c_str() << " HV STATUS " <<  Hvstatus <<  std::endl;
+      while(!in.eof()){
+	std::string sline;
+	getline(in, sline);
+	if(sline.find("Chip_SN") != std::string::npos){
+        
+	  std::cout<<"SLINE IS: "<<sline<<std::endl;
+	  std::string feid = sline.substr(sline.size()-4, 4);
+	  std::cout<<atoi(feid.c_str())<<std::endl;
+	  if(feid.find("\t") != std::string::npos) feid = sline.substr(sline.size()-4, 4);	
+	  std::cout<<"FEID is: "<<feid<<std::endl;
+	  feid_int = atoi(feid.c_str());
+	  std::cout<<feid_int<<std::endl;
+	  feid_int_cut =feid_int & 0x3F; //take the last 6 bits
+          feid_int_cut_2 = (int) feid_int_cut;
+	  std::cout<<feid_int_cut<<std::endl;
+	  
+	}
+      }
+      in.close();
+    }
+    else{/*
+        std::cout<<"CONFIG FILE MISSING"<<std::endl;
+       
+      in.open(config_path_2.c_str());
+      std::cout << " SONO NEL SECONDO IF" << config_path_2.c_str() << std::endl;
+      while(!in.eof()){
+	std::string sline;
+	getline(in, sline);
+	if(sline.find("Chip_SN") != std::string::npos){
+	  std::string feid = sline.substr(sline.size()-4, 4);
+	  if(feid.find("\t") != std::string::npos) feid = sline.substr(sline.size()-4, 4);	
+	  feid_int = atoi(feid.c_str());
+	  //std::cout<<feid_int<<std::endl;
+	  feid_int_cut = feid_int & 0x3F; // take the last 6 bits
+	  feid_int_cut_2 = (int) feid_int_cut;
+	  //std::cout<<feid_int_cut<<std::endl;		
+	
+	
+      }
+      
+      in.close();
+    */  
+    }
+    
+      //   std::cout << " FEIDCUT2 " << feid_int_cut_2 << std::endl;
+   
+    HistoReader* anhisto = new HistoReader (//modulelist[idx],
+		 			    *iit,
+		  		 	    asource,
+	   		 		    isfrontendzero,
+	 	 			    Hvstatus, 
+					    //theoutlinkno);
+    feid_int_cut_2);
+    
+    
+	
+    ++iit;
+  
+    if (rightlist[idx].substr(0,1)=="A"){
+      if (rightlist[idx]!="A1-1") theoutlinkno--;
+    }else{
+      theoutlinkno++;
+    }
+   
+    themodules.push_back(anhisto);
+  }
+  SetModules(themodules);
+  std::cout<<"mountmodules is fine!!!"<<std::endl;
+  return 0;
+}
+
+std::vector <std::string>
+Astave::fillmods(const std::string staveid)
+{
+  std::cout<<"ENTERING in FILLMODS"<<std::endl;
+  std::string db_path = DbTools::GetInstance()->DatabasePath();
+  ifstream in;
+  in.open((db_path+"/stave"+staveid+"_loading.txt").c_str());
+  std::vector <std::string> modulelist;
+  std::vector <std::string> moduleonfile;
+  std::vector <std::string> outlinkonfile;
+  
+  std::string moduleidno;
+  std::string RCEoutlinkno;
+	
+  int isfirstline = 1;
+  while(1){
+    in >> moduleidno >> RCEoutlinkno;
+    if (isfirstline == 0){
+      moduleonfile.push_back(moduleidno);
+      outlinkonfile.push_back(RCEoutlinkno);
+    }
+    isfirstline = 0;
+  }
+  in.close();
+  //  std::string rightlist[]={"A8-2","A8-1","A7-2", "A7-1", "A6-2","A6-1", "A5-2", "A5-1", "A4-2", "A4-1", "A3-2", "A3-1", "A2-2", "A2-1", "A1-2", "A1-1","C1-1", "C1-2","C2-1","C2-2","C3-1","C3-2","C4-1","C4-2","C5-1","C5-2","C6-1","C6-2","C7-1","C7-2","C8-1","C8-2"};
+  int sortedvect;
+  //sortedvect =0;
+  for (int sortedvect = 0 ; sortedvect <32 ; sortedvect++){
+    //  while (sortedvect!=32){
+    std::vector <std::string>::iterator it = moduleonfile.begin();
+    std::vector <std::string>::iterator it2 = outlinkonfile.begin();
+    //    for(int idx =0; idx<33; idx++){
+    while(it != moduleonfile.end()){
+      //if(outlinkonfile[idx]==rightlist[idx])
+      if(*it2==rightlist[sortedvect]){
+	modulelist.push_back(*it);
+      }
+      it++;
+      it2++;
+    }
+    //    sortedvect++;
+  }
+  std::cout<<"module list"<<std::endl;
+  return modulelist;
+}
+
+void Astave::reset()
+{
+}
+
+std::vector<HistoReader*> Astave::StaveReaderModule()
+{
+    std::cout<<"STAVE READER MODULE\n";
+    return themodules;
+  // return GetModules();
+}
+
+
+std::vector<std::string> Astave::GetModuleIdList(std::string staveid){
+  //Get Module list
+  std::string db_path = DbTools::GetInstance()->DatabasePath();
+  ifstream in;
+  in.open((db_path+"/stave"+staveid+"_loading.txt").c_str());
+
+  std::vector <std::string> modulelist;
+  std::vector <std::string> moduleonfile;
+  std::vector <std::string> outlinkonfile;
+
+  modulelist.clear();
+  if(!in){
+    in.close();
+    in.open(("/IBLdata/stave"+staveid+"_loading.txt").c_str());
+    if(!in){
+      std::cout << "No information file!" << std::endl;
+      return modulelist;
+    }
+  }
+	
+  std::string moduleidno;
+  std::string RCEoutlinkno;
+  std::string RCE;
+  std::string inlink;
+  std::string outlink;
+  
+  int isfirstline = 1;
+  int numeromodules =0;
+
+  while(1){
+    in >> moduleidno >> RCEoutlinkno >> RCE >> inlink >>outlink;
+    if (!in.good()) break;
+    if (isfirstline>-1){
+      moduleonfile.push_back(moduleidno);
+      outlinkonfile.push_back(RCEoutlinkno);
+    }
+    isfirstline = 0;
+    numeromodules++;
+  }
+  in.close();
+  
+  //  std::string rightlist[]={"A8-2","A8-1","A7-2", "A7-1", "A6-2","A6-1", "A5-2", "A5-1", "A4-2", "A4-1", "A3-2", "A3-1", "A2-2", "A2-1", "A1-2", "A1-1","C1-1", "C1-2","C2-1","C2-2","C3-1","C3-2","C4-1","C4-2","C5-1","C5-2","C6-1","C6-2","C7-1","C7-2","C8-1","C8-2"};
+  for (int sortedvect = 0 ; sortedvect <32 ; sortedvect++){
+    std::vector <std::string>::iterator it = moduleonfile.begin();
+    std::vector <std::string>::iterator it2 = outlinkonfile.begin();
+    while(it != moduleonfile.end()){
+      if(*it2 == rightlist[sortedvect]){
+	modulelist.push_back(*it);
+      }
+      it++;
+      it2++;
+    }
+  }
+
+  return modulelist;
+}
+
+std::vector<std::string> Astave::GetModulePosIdList(std::string staveid){
+  //Get Module list
+  std::string db_path = DbTools::GetInstance()->DatabasePath();
+  ifstream in;
+  in.open((db_path+"/stave"+staveid+"_loading.txt").c_str());
+
+  std::vector <std::string> modulelist;
+  std::vector <std::string> moduleonfile;
+  std::vector <std::string> outlinkonfile;
+
+  modulelist.clear();
+  if(!in){
+    in.close();
+    in.open(("/IBLdata/stave"+staveid+"_loading.txt").c_str());
+    if(!in){
+      std::cout << "No information file!" << std::endl;
+      return modulelist;
+    }
+  }
+	
+  std::string moduleidno;
+  std::string RCEoutlinkno;
+  std::string RCE;
+  std::string inlink;
+  std::string outlink;
+  
+  int isfirstline = 1;
+  int numeromodules =0;
+
+  while(1){
+    in >> moduleidno >> RCEoutlinkno >> RCE >> inlink >>outlink;
+    if (!in.good()) break;
+    if (isfirstline>-1){
+      moduleonfile.push_back(moduleidno);
+      outlinkonfile.push_back(RCEoutlinkno);
+    }
+    isfirstline = 0;
+    numeromodules++;
+  }
+  in.close();
+  
+  //  std::string rightlist[]={"A8-2","A8-1","A7-2", "A7-1", "A6-2","A6-1", "A5-2", "A5-1", "A4-2", "A4-1", "A3-2", "A3-1", "A2-2", "A2-1", "A1-2", "A1-1","C1-1", "C1-2","C2-1","C2-2","C3-1","C3-2","C4-1","C4-2","C5-1","C5-2","C6-1","C6-2","C7-1","C7-2","C8-1","C8-2"};
+  
+  for (int sortedvect = 0 ; sortedvect <32 ; sortedvect++){
+    std::vector <std::string>::iterator it = moduleonfile.begin();
+    std::vector <std::string>::iterator it2 = outlinkonfile.begin();
+    while(it != moduleonfile.end()){
+      if(*it2 == rightlist[sortedvect]){
+	modulelist.push_back(*it2);
+      }
+      it++;
+      it2++;
+    }
+  }
+
+  return modulelist;
+}
+
+std::string Astave::GetConfigPath(std::string staveid, std::string moduleid, ProcessPosition asource, int outlinkno){
+    std::cout<<"GetConfigPath_outlink: "<<outlinkno<<std::endl;
+  ifstream in;
+  std::ostringstream oss;
+  oss << outlinkno;
+  
+  std::string config_path, processposition_address;
+  switch (asource){
+	case PP_StaveTestBeforeTC_AT:
+        processposition_address = "/before_tc/after_tuning";
+	break;
+
+        case PP_StaveTestAfterTC_AT:
+        processposition_address = "/after_tc/after_tuning";
+	break;
+
+        case PP_StaveTestBeforeTC_BT:
+        processposition_address = "/before_tc/before_tuning";
+	break;
+  
+        case PP_StaveTestAfterTC_BT:
+	processposition_address = "/after_tc/after_tuning";
+	break;
+  
+	default:
+	processposition_address = "/before_tc/before_tuning";
+	break;  
+  }
+
+  config_path = DbTools::GetInstance()->DatabasePath() + "/staves/stave" + staveid + processposition_address +"/without_hv/";
+  //config_path =  DbTools::GetInstance()->DatabasePath() + "/staves/stave" + staveid + "/before_tc/before_tuning/without_hv/";
+  //"/before_tc/without_hv/";
+  DIR *dp, *dp2;
+  struct dirent *dirp, *dirp2;
+  if((dp  = opendir(config_path.c_str())) == NULL) {
+    std::cout << "No file: " << config_path << std::endl;
+  }else{
+    while ((dirp = readdir(dp)) != NULL) {
+//        std::cout<<"YOSUKEEEEEE"<<std::endl;
+      std::string dn(dirp->d_name);
+      if(dn.find("DIGITAL_TEST") != std::string::npos){
+	config_path = config_path + dn + "/config/" + moduleid + "/configs/";
+	//	std::cout<<"CONFIG PATH: "<<config_path.c_str()<<std::endl;
+	if((dp2  = opendir(config_path.c_str())) == NULL) {
+	  std::cout << "No file: " << config_path << std::endl;
+	}else{
+	  while ((dirp2 = readdir(dp2)) != NULL) {
+	    std::string dn2(dirp2->d_name);
+	    //std::cout << "config: " << moduleid << ", " << dn2 << std::endl;
+	    if(dn2.find("fe" + oss.str()) != std::string::npos && config_path.substr(config_path.size()-4,4)!=".cfg"){
+	      config_path = config_path + dn2;
+	    }
+	  }//while for dirp2 
+	} // if for dp2
+	closedir(dp2);
+      } // while for dirp
+    } // if for dp
+    closedir(dp);
+  }
+  return config_path;
+}
+std::string Astave::GetConfigPath2(std::string staveid, std::string moduleid, int outlinkno){
+  ifstream in;
+  std::ostringstream oss;
+  oss << outlinkno;
+  
+  std::string config_path;
+  config_path = DbTools::GetInstance()->DatabasePath() + "/staves/stave" + staveid + 
+    "/cfg/";
+  //"/before_tc/without_hv/";
+  DIR *dp, *dp2;
+  struct dirent *dirp, *dirp2;
+  if((dp  = opendir(config_path.c_str())) == NULL) {
+    std::cout << "No file: " << config_path << std::endl;
+  }else{
+    //while ((dirp = readdir(dp)) != NULL) {
+    std::string dn(dirp->d_name);
+    
+    config_path = config_path +  moduleid + "/configs/";
+    //	std::cout<<"CONFIG PATH: "<<config_path.c_str()<<std::endl;
+    if((dp2  = opendir(config_path.c_str())) == NULL) {
+      std::cout << "No file: " << config_path << std::endl;
+    }else{
+      while ((dirp2 = readdir(dp2)) != NULL) {
+	std::string dn2(dirp2->d_name);
+	// std::cout << "config: " << moduleid << ", " << dn2 << std::endl;
+	if(dn2.find("fe" + oss.str()) != std::string::npos  && config_path.substr(config_path.size()-4,4)!=".cfg"){
+	  config_path = config_path + dn2;
+	}
+      } //while for dirp2 
+    } // if for dp2
+    //closedir(dp2);
+    //} // while for dirp
+    // if for dp
+    closedir(dp);
+  }
+  return config_path;
+}
+
+int Astave::IsDirectoryEmpty(const char *dirname) {
+  int n = 0;
+  struct dirent *d;
+  DIR *dir = opendir(dirname);
+  if (dir == NULL) //Not a directory or doesn't exist
+    return 1;
+  while ((d = readdir(dir)) != NULL) {
+    if(++n > 2)
+      break;
+  }
+  closedir(dir);
+  if (n <= 2) //Directory Empty
+    return 1;
+  else
+    return 0;
+}
+	char* Astave::itoa(int value, char* result, int base) {
+		// check that the base if valid
+		if (base < 2 || base > 36) { *result = '\0'; return result; }
+	
+		char* ptr = result, *ptr1 = result, tmp_char;
+		int tmp_value;
+	
+		do {
+			tmp_value = value;
+			value /= base;
+			*ptr++ = "zyxwvutsrqponmlkjihgfedcba9876543210123456789abcdefghijklmnopqrstuvwxyz" [35 + (tmp_value - value * base)];
+		} while ( value );
+	
+		// Apply negative sign
+		if (tmp_value < 0) *ptr++ = '-';
+		*ptr-- = '\0';
+		while(ptr1 < ptr) {
+			tmp_char = *ptr;
+			*ptr--= *ptr1;
+			*ptr1++ = tmp_char;
+		}
+		return result;
+	}

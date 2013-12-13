@@ -1,0 +1,7 @@
+How to make the code work as of 21-08-2012
+open root in the Analysis package directory
+
+.L HistoReader.cc+   <-- this compile the code
+HistoReader atest = new HistoReader("whatver you like to write here")
+
+In this way atest is a fully functional example of the HistoReader, and you can test all your macros on it, I'm going to implement ASAP the DB retrieval code, but now all the analysis macros could be tested (in principle)

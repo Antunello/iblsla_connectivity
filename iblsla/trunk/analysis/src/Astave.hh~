@@ -1,0 +1,67 @@
+////////////////////////////////////////////////////
+// Class developed for Stave RT result comparison //
+// Developed by: J. Agricola, A. Cervelli         //
+// V 0.1 Jul 2012                                 //
+////////////////////////////////////////////////////
+#ifndef _IBLSLA_ASTAVE_H
+#define _IBLSLA_ASTAVE_H
+
+#include <TObject.h>
+#include <stdio.h>
+#include <HistoReader.hh>
+#include <TGraph.h>
+#include <ScanDef.hh>
+#include <IVMeasurementPoint.hh>
+
+class Astave {
+public:
+  Astave();	
+  
+  // crear destructor
+//  ~Astave();
+	
+  std::vector<IVMeasurementPoint> GetIVStaveVector(const std::string staveid, ProcessPosition asource, int channel);
+  
+  static Astave* GetInstance();
+
+  std::vector<std::string> fillmods (const std::string staveid);
+  int mountmodules	(const std::string staveid,
+			 const ProcessPosition asource,
+			 const int Hvstatus=1);
+  void reset();
+  std::vector<HistoReader*> StaveReaderModule();
+  TH1D* HistoIVLoader(std::vector<IVMeasurementPoint> iv);
+
+
+  void SetModules(std::vector<HistoReader*> themodules2){
+    m_themodules = themodules2;
+  }
+
+  std::vector<HistoReader*> GetModules(){
+    return m_themodules;
+  }
+  
+  std::vector<std::string> GetStaveID ();
+
+  std::vector<std::string> GetModuleIdList(std::string staveid);
+  std::vector<std::string> GetModulePosIdList(std::string staveid);
+//  TH1D* Astave::HistoIVLoader(std::vector<IVMeasurementPoint> iv);
+  std::string GetConfigPath(std::string staveid, std::string moduleid,ProcessPosition asource, int outlinkno);
+  std::string GetConfigPath2(std::string staveid, std::string moduleid, int outlinkno);
+  int IsDirectoryEmpty(const char *dirname);
+  char* itoa(int value, char* result, int base);
+public:
+
+  static Astave* instance;
+  std::vector<TGraph*> theivs;
+
+  //---IV Scans
+  std::vector<TGraph*> IV;
+  std::vector<HistoReader*> m_themodules;
+  std::vector<HistoReader*> themodules;
+
+  std::string STAVEID;
+
+};
+
+#endif

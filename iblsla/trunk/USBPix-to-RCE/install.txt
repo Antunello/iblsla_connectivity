@@ -1,0 +1,13 @@
+Compiling:
+* Compile usbpix
+* copy example1.exe to host/trunk/Examples/Example1.exe
+* nmake Makefile.Example1
+
+Installing:
+* copy Example1.exe and Example1.exe.manifest to host/trunk/bin
+* copy usbpix-to-rce.bat to the same folder
+* Press start -> run. Type "sendto" and press enter
+* Link usbpix-to-rce.bat to the folder that has just opened
+
+Using:
+* right-click on a scan result, go to "Send To", select the batch file.

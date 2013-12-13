@@ -1,0 +1,13 @@
+== Compiling on GNU systems==
+1.) Install autotools (automake, autoconf) (If you are using Mac OS: 
+    Get macports and use this to install automake and autoconf.)
+
+2.) Call:
+	aclocal
+	autoconf
+	automake --add-missing
+	# Ignore the warnings of automake. Maybe we will fix this later. ;)
+	./configure
+	make
+
+3.) Execute src/iblsla
